@@ -57,6 +57,10 @@ try {
     try { & (Join-Path $Repo "deps.ps1") } catch { $failed = $true }
     Assert $failed "Dependency install failure must stop setup"
     Remove-Item Function:python
+    # The mocked failure above leaves $LASTEXITCODE non-zero. GitHub Actions runs
+    # this script by dot-sourcing it, so a stray non-zero $LASTEXITCODE at the
+    # end would fail the step even though every assertion passed.
+    $global:LASTEXITCODE = 0
 
     if ($env:OS -eq 'Windows_NT') {
         # Use an isolated registry fixture, never touch Explorer's real associations.
