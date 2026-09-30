@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install default engine only
+        run: python -m pip install -r requirements.txt
+      - name: Check Python syntax
+        run: python -m py_compile img-to-svg.py
+      - name: Test conversions and launcher
+        run: python -m unittest discover -s tests -v
+      - name: Check shell syntax
+        if: runner.os == 'macOS'
+        run: bash -n install.sh uninstall.sh img-to-svg
+      - name: Parse PowerShell and test installer helpers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/test-install.ps1

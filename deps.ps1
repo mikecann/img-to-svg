@@ -1,22 +1,36 @@
-# img-to-svg/deps.ps1
+# deps.ps1
 # Sets up vtracer (default engine) and optionally StarVector (AI engine).
 # Idempotent - safe to re-run.
 
+param([switch]$WithStarVector)
+
 Write-Host "  [img-to-svg] Checking dependencies..." -ForegroundColor Cyan
 
-# --- vtracer (default engine) ---
-$installed = python -c "import vtracer; print('ok')" 2>$null
-if ($installed -eq "ok") {
-    Write-Host "    OK  vtracer already installed" -ForegroundColor Green
-} else {
-    Write-Host "    Installing vtracer via pip..." -ForegroundColor Yellow
-    pip install vtracer
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "    ERROR: vtracer installation failed." -ForegroundColor Red
+$ErrorActionPreference = "Stop"
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    throw "Install Python 3 with pip and add it to PATH, then re-run deps.ps1."
+}
+
+# The default engine needs both packages. Use the same interpreter for pip.
+foreach ($pkg in @(@{ Name = "vtracer"; Import = "vtracer" }, @{ Name = "Pillow"; Import = "PIL" })) {
+    python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('$($pkg.Import)') else 1)"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "    OK  $($pkg.Name) already installed" -ForegroundColor Green
     } else {
-        Write-Host "    OK  vtracer installed" -ForegroundColor Green
+        python -m pip install $pkg.Name
+        if ($LASTEXITCODE -ne 0) { throw "Failed to install $($pkg.Name)." }
     }
 }
+
+if (-not $WithStarVector) {
+    Write-Host "    StarVector skipped. Use -WithStarVector to set up the optional AI engine." -ForegroundColor Yellow
+    return
+}
+
+# CUDA-enabled PyTorch depends on the GPU and driver. Don't guess a build here.
+python -c "import torch; assert torch.cuda.is_available(), 'CUDA-enabled PyTorch and an NVIDIA GPU are required'"
+if ($LASTEXITCODE -ne 0) { throw "Install CUDA-enabled PyTorch before running deps.ps1 -WithStarVector." }
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw "StarVector setup requires Git on PATH." }
 
 # --- StarVector (AI engine) ---
 # Clone the repo to C:\dev\tools\star-vector then do a no-deps editable install.
@@ -24,6 +38,7 @@ if ($installed -eq "ok") {
 # and cairosvg (not needed - we extract the raw SVG string directly).
 
 $starVectorDir = "C:\dev\tools\star-vector"
+New-Item -ItemType Directory -Path (Split-Path $starVectorDir -Parent) -Force | Out-Null
 
 if (Test-Path $starVectorDir) {
     Write-Host "    OK  star-vector repo already present at $starVectorDir" -ForegroundColor Green
@@ -31,7 +46,7 @@ if (Test-Path $starVectorDir) {
     Write-Host "    Cloning star-vector repository to $starVectorDir ..." -ForegroundColor Yellow
     git clone https://github.com/joanrod/star-vector.git $starVectorDir
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "    ERROR: git clone failed. StarVector engine will not be available." -ForegroundColor Red
+        throw "git clone failed. StarVector engine will not be available."
     } else {
         Write-Host "    OK  star-vector cloned" -ForegroundColor Green
     }
@@ -44,9 +59,9 @@ if (Test-Path $starVectorDir) {
         Write-Host "    OK  starvector package already importable" -ForegroundColor Green
     } else {
         Write-Host "    Installing starvector package (no-deps)..." -ForegroundColor Yellow
-        pip install -e $starVectorDir --no-deps
+        python -m pip install -e $starVectorDir --no-deps
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "    ERROR: starvector package install failed." -ForegroundColor Red
+            throw "StarVector package install failed."
         } else {
             Write-Host "    OK  starvector package installed" -ForegroundColor Green
         }
@@ -70,7 +85,8 @@ if (Test-Path $starVectorDir) {
             Write-Host "    OK  $pkgName" -ForegroundColor Green
         } else {
             Write-Host "    Installing $pkg ..." -ForegroundColor Yellow
-            pip install $pkg
+            python -m pip install $pkg
+            if ($LASTEXITCODE -ne 0) { throw "Failed to install $pkg." }
         }
     }
 

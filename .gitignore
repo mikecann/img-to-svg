@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+node_modules/
+.build/
+build/
+dist/
+*.egg-info/
+*.log
+*.exe
+*.dll
+.DS_Store
