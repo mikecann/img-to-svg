@@ -5,10 +5,8 @@ Turn a PNG, JPEG or WebP into an SVG
 Windows · macOS
 
 <!-- media: hero -->
-<!-- ![img-to-svg](docs/hero.png) -->
+![A small PNG and the SVG img-to-svg made from it, both zoomed in](docs/before-after.png)
 <!-- /media: hero -->
-
-![img-to-svg header](docs/header.webp)
 
 ## What it is
 
